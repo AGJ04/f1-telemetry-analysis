@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>F1 Telemetry Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>F1 Telemetry Dashboard</h1>
+
+    <label>Driver:</label>
+    <select id="driver-select">
+        <option value="Lewis Hamilton">Lewis Hamilton</option>
+        <option value="Max Verstappen">Max Verstappen</option>
+    </select>
+
+    <label>Grand Prix:</label>
+    <select id="gp-select">
+        <option value="Monaco Grand Prix">Monaco GP</option>
+        <option value="British Grand Prix">British GP</option>
+    </select>
+
+    <button onclick="loadTelemetry()">Load Telemetry</button>
+
+    <canvas id="speedChart"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
