@@ -46,6 +46,8 @@ drivers = sorted(session.laps['Driver'].unique())
 driver1 = st.sidebar.selectbox("Driver 1", drivers, index=0)
 driver2 = st.sidebar.selectbox("Driver 2", drivers, index=1)
 
+
+
 # -------------------------
 # Functions
 # -------------------------
