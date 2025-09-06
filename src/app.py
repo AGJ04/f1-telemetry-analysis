@@ -5,6 +5,7 @@ import fastf1 as ff1
 from fastf1 import plotting
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 import os
 
 # -------------------------
@@ -17,16 +18,15 @@ if not os.path.exists(cache_folder):
 ff1.Cache.enable_cache(cache_folder)
 plotting.setup_mpl()
 
-st.title("F1 Telemetry Comparison App 🏎️")
+st.title("F1 Telemetry Dashboard 🏎️")
 
 # -------------------------
-# Sidebar Inputs
+# Sidebar: Session & Driver Selection
 # -------------------------
-st.sidebar.header("Select Session & Drivers")
+st.sidebar.header("Session & Driver Selection")
 
 # Year
-year = st.sidebar.number_input(
-    "Year", min_value=2000, max_value=2025, value=2023)
+year = st.sidebar.number_input("Year", min_value=2000, max_value=2025, value=2023)
 
 # Grand Prix
 schedule = ff1.get_event_schedule(year)
@@ -34,15 +34,14 @@ races = schedule['EventName'].tolist()
 gp = st.sidebar.selectbox("Grand Prix", races)
 
 # Session Type
-session_type = st.sidebar.selectbox(
-    "Session Type", ["FP1", "FP2", "FP3", "Q", "R"])
+session_type = st.sidebar.selectbox("Session Type", ["FP1", "FP2", "FP3", "Q", "R"])
 
 # Load session
-session = ff1.get_session(year, gp, session_type)
 with st.spinner("Loading session data..."):
+    session = ff1.get_session(year, gp, session_type)
     session.load()
 
-# Driver dropdowns
+# Drivers dropdown
 drivers = sorted(session.laps['Driver'].unique())
 driver1 = st.sidebar.selectbox("Driver 1", drivers, index=0)
 driver2 = st.sidebar.selectbox("Driver 2", drivers, index=1)
@@ -50,20 +49,17 @@ driver2 = st.sidebar.selectbox("Driver 2", drivers, index=1)
 # -------------------------
 # Functions
 # -------------------------
-
-
 def get_fastest_lap_telemetry(session, driver):
     laps = session.laps.pick_driver(driver)
     if laps.empty:
-        return None
+        return None, None
     lap = laps.pick_fastest()
     if lap is None:
-        return None
+        return None, None
     return lap.get_telemetry(), lap
 
-
 def plot_speed_comparison(tel1, tel2, drv1, drv2):
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(10,4))
     plt.plot(tel1['Distance'], tel1['Speed'], label=drv1)
     plt.plot(tel2['Distance'], tel2['Speed'], label=drv2)
     plt.xlabel("Distance [m]")
@@ -73,22 +69,69 @@ def plot_speed_comparison(tel1, tel2, drv1, drv2):
     st.pyplot(plt.gcf())
     plt.clf()
 
-
-def plot_lap_delta(lap1, lap2, drv1, drv2):
-    # Compute delta times
-    merged = pd.merge_asof(lap1, lap2, on='Distance',
-                           suffixes=(f'_{drv1}', f'_{drv2}'))
-    merged['Delta'] = merged[f'Time_{drv1}'] - merged[f'Time_{drv2}']
-
-    plt.figure(figsize=(10, 4))
-    plt.plot(merged['Distance'], merged['Delta'])
-    plt.axhline(0, color='black', linestyle='--')
+def plot_throttle_brake(tel1, tel2, drv1, drv2):
+    plt.figure(figsize=(10,4))
+    plt.plot(tel1['Distance'], tel1['Throttle'], label=f"{drv1} Throttle", color='green')
+    plt.plot(tel1['Distance'], tel1['Brake'], label=f"{drv1} Brake", color='red')
+    plt.plot(tel2['Distance'], tel2['Throttle'], label=f"{drv2} Throttle", color='lime')
+    plt.plot(tel2['Distance'], tel2['Brake'], label=f"{drv2} Brake", color='darkred')
     plt.xlabel("Distance [m]")
-    plt.ylabel(f"Delta Time ({drv1} - {drv2}) [s]")
-    plt.title("Lap Delta Over Track")
+    plt.ylabel("Throttle / Brake %")
+    plt.title("Throttle & Brake Comparison")
+    plt.legend()
     st.pyplot(plt.gcf())
     plt.clf()
 
+def plot_track_speed_map(lap, driver):
+    # Create a colored track by speed
+    plt.figure(figsize=(6,6))
+    track_map = plotting.track(lap)
+    plt.scatter(lap['X'], lap['Y'], c=lap['Speed'], cmap='viridis', s=5)
+    plt.title(f"{driver} Track Speed Map")
+    plt.axis('equal')
+    plt.colorbar(label='Speed [km/h]')
+    st.pyplot(plt.gcf())
+    plt.clf()
+
+def sector_analysis(lap1, lap2, drv1, drv2):
+    sectors1 = lap1.split_by_sectors()
+    sectors2 = lap2.split_by_sectors()
+    fig, ax = plt.subplots(figsize=(8,4))
+    for i in range(1, 4):
+        ax.bar(f"Sector {i}", sectors1[i].time.iloc[-1], alpha=0.5, label=f"{drv1} Sector {i}")
+        ax.bar(f"Sector {i}", sectors2[i].time.iloc[-1], alpha=0.5, label=f"{drv2} Sector {i}")
+    ax.set_ylabel("Sector Time [s]")
+    ax.set_title("Sector Comparison")
+    ax.legend()
+    st.pyplot(fig)
+    plt.clf()
+
+def kpi_table(lap, driver):
+    st.subheader(f"{driver} KPIs")
+    kpis = {
+        "Fastest Lap Time": lap['Time'].iloc[-1],
+        "Max Speed [km/h]": lap['Speed'].max(),
+        "Average Speed [km/h]": lap['Speed'].mean(),
+        "Average Throttle [%]": lap['Throttle'].mean(),
+        "Average Brake [%]": lap['Brake'].mean()
+    }
+    st.table(pd.DataFrame.from_dict(kpis, orient='index', columns=[driver]))
+
+def lap_delta_heatmap(lap1, lap2, drv1, drv2):
+    merged = pd.merge_asof(lap1, lap2, on='Distance', suffixes=(f'_{drv1}', f'_{drv2}'))
+    merged['Delta'] = merged[f'Time_{drv1}'] - merged[f'Time_{drv2}']
+    plt.figure(figsize=(10,3))
+    plt.scatter(merged['Distance'], np.zeros_like(merged['Distance']), c=merged['Delta'], cmap='bwr', s=15)
+    plt.colorbar(label=f"Delta Time ({drv1}-{drv2}) [s]")
+    plt.title("Lap Delta Heatmap")
+    plt.xlabel("Distance [m]")
+    st.pyplot(plt.gcf())
+    plt.clf()
+
+def session_summary(session):
+    st.subheader("Session Summary")
+    fastest_laps = session.laps.groupby('Driver')['LapTime'].min().sort_values()
+    st.table(fastest_laps)
 
 # -------------------------
 # Run Analysis
@@ -103,5 +146,20 @@ if st.button("Compare Laps"):
         st.subheader("Speed Comparison")
         plot_speed_comparison(tel1, tel2, driver1, driver2)
 
-        st.subheader("Lap Delta (Time Difference)")
-        plot_lap_delta(lap1, lap2, driver1, driver2)
+        st.subheader("Throttle & Brake Comparison")
+        plot_throttle_brake(tel1, tel2, driver1, driver2)
+
+        st.subheader("Track Speed Map")
+        plot_track_speed_map(lap1, driver1)
+        plot_track_speed_map(lap2, driver2)
+
+        st.subheader("Sector Analysis")
+        sector_analysis(lap1, lap2, driver1, driver2)
+
+        kpi_table(lap1, driver1)
+        kpi_table(lap2, driver2)
+
+        st.subheader("Lap Delta Heatmap")
+        lap_delta_heatmap(lap1, lap2, driver1, driver2)
+
+        session_summary(session)
