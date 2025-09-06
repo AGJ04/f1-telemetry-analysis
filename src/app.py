@@ -1,5 +1,4 @@
-# app.py
-
+import os
 from flask import Flask, render_template, jsonify, request
 from src.telemetry_analysis import get_lap_telemetry
 import fastf1 as ff1
@@ -7,7 +6,10 @@ import fastf1 as ff1
 # -------------------------
 # Setup Flask App
 # -------------------------
-app = Flask(__name__)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_dir = os.path.join(project_root, "templates")
+
+app = Flask(__name__, template_folder=template_dir)
 
 # Enable FastF1 cache
 ff1.Cache.enable_cache("cache")
