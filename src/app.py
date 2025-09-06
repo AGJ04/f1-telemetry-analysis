@@ -102,12 +102,19 @@ def plot_track_speed_map(lap_obj, driver):
     plt.clf()
 
 def sector_analysis(lap1, lap2, drv1, drv2):
-    sectors1 = lap1.split_by_sectors()
-    sectors2 = lap2.split_by_sectors()
-    fig, ax = plt.subplots(figsize=(8,4))
-    for i in range(1, 4):
-        ax.bar(f"Sector {i}", sectors1[i].time.iloc[-1], alpha=0.5, label=f"{drv1} Sector {i}")
-        ax.bar(f"Sector {i}", sectors2[i].time.iloc[-1], alpha=0.5, label=f"{drv2} Sector {i}")
+    # Get sector times
+    sectors1 = lap1['Sector1Time'], lap1['Sector2Time'], lap1['Sector3Time']
+    sectors2 = lap2['Sector1Time'], lap2['Sector2Time'], lap2['Sector3Time']
+
+    # Check if any sectors are None
+    if None in sectors1 or None in sectors2:
+        st.warning("Sector times are not available for one of the drivers.")
+        return
+
+    # Plot sector times
+    fig, ax = plt.subplots(figsize=(6,4))
+    ax.bar([f"Sector {i}" for i in range(1,4)], sectors1, alpha=0.5, label=drv1)
+    ax.bar([f"Sector {i}" for i in range(1,4)], sectors2, alpha=0.5, label=drv2)
     ax.set_ylabel("Sector Time [s]")
     ax.set_title("Sector Comparison")
     ax.legend()
