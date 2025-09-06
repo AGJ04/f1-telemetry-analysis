@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
+from PIL import Image
 
 # -------------------------
 # Setup FastF1 Cache
@@ -18,13 +19,13 @@ if not os.path.exists(cache_folder):
 ff1.Cache.enable_cache(cache_folder)
 plotting.setup_mpl()
 
-st.title("F1 Telemetry Dashboard 🏎️")
+st.set_page_config(page_title="F1 Telemetry Dashboard", layout="wide")
+st.title("🏎️ F1 Telemetry Dashboard")
 
 # -------------------------
 # Sidebar: Session & Driver Selection
 # -------------------------
 st.sidebar.header("Session & Driver Selection")
-
 year = st.sidebar.number_input("Year", min_value=2000, max_value=2025, value=2023)
 
 # Grand Prix
@@ -35,13 +36,29 @@ gp = st.sidebar.selectbox("Grand Prix", races)
 # Session Type
 session_type = st.sidebar.selectbox("Session Type", ["FP1", "FP2", "FP3", "Q", "R"])
 
+# Load session
 with st.spinner("Loading session data..."):
     session = ff1.get_session(year, gp, session_type)
     session.load()
 
 drivers = sorted(session.laps['Driver'].unique())
 driver1 = st.sidebar.selectbox("Driver 1", drivers, index=0)
-driver2 = st.sidebar.selectbox("Driver 2", drivers, index=1)
+driver2 = st.sidebar.selectbox("Driver 2", [d for d in drivers if d != driver1], index=0)
+
+# -------------------------
+# Driver images mapping
+# -------------------------
+driver_images = {
+    "Lewis Hamilton": "src/images/hamilton.png",
+    "Max Verstappen": "src/images/verstappen.png",
+    "Charles Leclerc": "src/images/leclerc.png",
+    # Add other drivers here...
+}
+
+def get_driver_image(driver):
+    if driver in driver_images:
+        return Image.open(driver_images[driver])
+    return None
 
 # -------------------------
 # Functions
@@ -95,7 +112,6 @@ def plot_track_speed_map(lap_obj, driver):
 def sector_analysis(lap1, lap2, drv1, drv2):
     sectors1 = [lap1.Sector1Time.total_seconds(), lap1.Sector2Time.total_seconds(), lap1.Sector3Time.total_seconds()]
     sectors2 = [lap2.Sector1Time.total_seconds(), lap2.Sector2Time.total_seconds(), lap2.Sector3Time.total_seconds()]
-
     fig, ax = plt.subplots(figsize=(6,4))
     ax.bar([f"Sector {i}" for i in range(1,4)], sectors1, alpha=0.5, label=drv1)
     ax.bar([f"Sector {i}" for i in range(1,4)], sectors2, alpha=0.5, label=drv2)
@@ -106,14 +122,10 @@ def sector_analysis(lap1, lap2, drv1, drv2):
     plt.clf()
 
 def kpi_table(telemetry, driver):
-    st.subheader(f"{driver} KPIs")
-    kpis = {
-        "Max Speed [km/h]": telemetry['Speed'].max(),
-        "Average Speed [km/h]": telemetry['Speed'].mean(),
-        "Average Throttle [%]": telemetry['Throttle'].mean(),
-        "Average Brake [%]": telemetry['Brake'].mean()
-    }
-    st.table(pd.DataFrame.from_dict(kpis, orient='index', columns=[driver]))
+    st.metric("Max Speed", f"{telemetry['Speed'].max():.1f} km/h", delta=None)
+    st.metric("Average Speed", f"{telemetry['Speed'].mean():.1f} km/h", delta=None)
+    st.metric("Average Throttle", f"{telemetry['Throttle'].mean():.1f} %", delta=None)
+    st.metric("Average Brake", f"{telemetry['Brake'].mean():.1f} %", delta=None)
 
 def lap_delta_heatmap(tel1, tel2, drv1, drv2):
     merged = pd.merge_asof(tel1, tel2, on='Distance', suffixes=(f'_{drv1}', f'_{drv2}'))
@@ -141,21 +153,34 @@ if st.button("Compare Laps"):
     if tel1 is None or tel2 is None:
         st.error("One of the drivers has no laps in this session.")
     else:
-        st.subheader("Speed Comparison")
-        plot_speed_comparison(tel1, tel2, driver1, driver2)
+        # Show driver images side by side
+        col1, col2 = st.columns(2)
+        with col1:
+            img1 = get_driver_image(driver1)
+            if img1: st.image(img1, width=150, caption=driver1)
+        with col2:
+            img2 = get_driver_image(driver2)
+            if img2: st.image(img2, width=150, caption=driver2)
 
-        st.subheader("Throttle & Brake Comparison")
-        plot_throttle_brake(tel1, tel2, driver1, driver2)
-
-        st.subheader("Track Speed Map")
-        plot_track_speed_map(lap1, driver1)
-        plot_track_speed_map(lap2, driver2)
+        # Tabs for plots
+        tab1, tab2, tab3 = st.tabs(["Speed", "Throttle & Brake", "Track Map"])
+        with tab1:
+            plot_speed_comparison(tel1, tel2, driver1, driver2)
+        with tab2:
+            plot_throttle_brake(tel1, tel2, driver1, driver2)
+        with tab3:
+            plot_track_speed_map(lap1, driver1)
+            plot_track_speed_map(lap2, driver2)
 
         st.subheader("Sector Analysis")
         sector_analysis(lap1, lap2, driver1, driver2)
 
-        kpi_table(tel1, driver1)
-        kpi_table(tel2, driver2)
+        st.subheader("Driver KPIs")
+        col1, col2 = st.columns(2)
+        with col1:
+            kpi_table(tel1, driver1)
+        with col2:
+            kpi_table(tel2, driver2)
 
         st.subheader("Lap Delta Heatmap")
         lap_delta_heatmap(tel1, tel2, driver1, driver2)
