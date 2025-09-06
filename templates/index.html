@@ -1,29 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>F1 Telemetry Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>F1 Telemetry Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #111; color: #eee; }
+    h1 { color: #f00; }
+    .container { max-width: 800px; margin: auto; }
+  </style>
 </head>
 <body>
-    <h1>F1 Telemetry Dashboard</h1>
-
-    <label>Driver:</label>
-    <select id="driver-select">
-        <option value="Lewis Hamilton">Lewis Hamilton</option>
-        <option value="Max Verstappen">Max Verstappen</option>
-    </select>
-
-    <label>Grand Prix:</label>
-    <select id="gp-select">
-        <option value="Monaco Grand Prix">Monaco GP</option>
-        <option value="British Grand Prix">British GP</option>
-    </select>
-
-    <button onclick="loadTelemetry()">Load Telemetry</button>
-
-    <canvas id="speedChart"></canvas>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <div class="container">
+    <h1>🏎️ F1 Telemetry Dashboard</h1>
+    <p>Welcome to your Flask-powered F1 telemetry app!</p>
+    <p>Try accessing <code>/telemetry?year=2023&gp=Monaco Grand Prix&session=Q&driver=Lewis Hamilton</code></p>
+  </div>
 </body>
 </html>

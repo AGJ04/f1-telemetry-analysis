@@ -1,49 +1,44 @@
-import os
+# src/telemetry_analysis.py
+
 import fastf1 as ff1
-from fastf1 import plotting
-import matplotlib.pyplot as plt
+import pandas as pd
+import os
 
-# ---------- Setup Cache ----------
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-cache_folder = os.path.join(project_root, "cache")
-
+# Setup FastF1 cache
+cache_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
 if not os.path.exists(cache_folder):
     os.makedirs(cache_folder)
-
 ff1.Cache.enable_cache(cache_folder)
-plotting.setup_mpl()
-
-# ---------- Functions ----------
 
 
-def get_fastest_lap_telemetry(year, gp, session_type, driver):
-    session = ff1.get_session(year, gp, session_type)
-    session.load()
-    lap = session.laps.pick_driver(driver).pick_fastest()
-    return lap.get_telemetry()
+def get_lap_telemetry(year, gp, session_type, driver, lap_index=0):
+    """
+    Fetch telemetry data for a specific driver's lap in a given session.
 
+    Args:
+        year (int): Year of the race (e.g. 2023)
+        gp (str): Grand Prix name (e.g. 'Monaco Grand Prix')
+        session_type (str): Session type (FP1, FP2, FP3, Q, R)
+        driver (str): Driver name (e.g. 'Lewis Hamilton')
+        lap_index (int): Which lap to fetch (0 = fastest lap)
 
-def plot_speed_comparison(tel1, tel2, drv1, drv2):
-    plt.figure(figsize=(10, 5))
-    plt.plot(tel1['Distance'], tel1['Speed'], label=drv1)
-    plt.plot(tel2['Distance'], tel2['Speed'], label=drv2)
-    plt.xlabel("Distance [m]")
-    plt.ylabel("Speed [km/h]")
-    plt.title("Fastest Lap Speed Comparison")
-    plt.legend()
-    plt.show()
-
-
-def get_fastest_lap_telemetry(year, gp, session_type, driver):
+    Returns:
+        pd.DataFrame: Telemetry data with speed, throttle, brake, distance, etc.
+    """
     session = ff1.get_session(year, gp, session_type)
     session.load()
 
     laps = session.laps.pick_driver(driver)
     if laps.empty:
-        return None  # No laps for this driver
+        raise ValueError(f"No laps found for {driver} in {gp} {session_type} {year}")
 
-    lap = laps.pick_fastest()
-    if lap is None:
-        return None  # Driver has no valid fastest lap
+    if lap_index == 0:
+        lap = laps.pick_fastest()
+    else:
+        lap = laps.iloc[lap_index]
 
-    return lap.get_telemetry()
+    telemetry = lap.get_telemetry()
+    telemetry["Driver"] = driver
+    telemetry["LapTime"] = lap['LapTime']
+
+    return telemetry
