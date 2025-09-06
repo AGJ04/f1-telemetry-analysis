@@ -25,7 +25,6 @@ st.title("F1 Telemetry Dashboard 🏎️")
 # -------------------------
 st.sidebar.header("Session & Driver Selection")
 
-# Year
 year = st.sidebar.number_input("Year", min_value=2000, max_value=2025, value=2023)
 
 # Grand Prix
@@ -36,17 +35,13 @@ gp = st.sidebar.selectbox("Grand Prix", races)
 # Session Type
 session_type = st.sidebar.selectbox("Session Type", ["FP1", "FP2", "FP3", "Q", "R"])
 
-# Load session
 with st.spinner("Loading session data..."):
     session = ff1.get_session(year, gp, session_type)
     session.load()
 
-# Drivers dropdown
 drivers = sorted(session.laps['Driver'].unique())
 driver1 = st.sidebar.selectbox("Driver 1", drivers, index=0)
 driver2 = st.sidebar.selectbox("Driver 2", drivers, index=1)
-
-
 
 # -------------------------
 # Functions
@@ -84,15 +79,11 @@ def plot_throttle_brake(tel1, tel2, drv1, drv2):
     st.pyplot(plt.gcf())
     plt.clf()
 
-
 def plot_track_speed_map(lap_obj, driver):
-    # Extract telemetry from Lap object
     telemetry = lap_obj.get_telemetry()
-    
     if 'X' not in telemetry.columns or 'Y' not in telemetry.columns:
         st.warning(f"No X/Y coordinates available for {driver}'s lap.")
         return
-    
     plt.figure(figsize=(6,6))
     plt.scatter(telemetry['X'], telemetry['Y'], c=telemetry['Speed'], cmap='viridis', s=5)
     plt.axis('equal')
@@ -102,16 +93,9 @@ def plot_track_speed_map(lap_obj, driver):
     plt.clf()
 
 def sector_analysis(lap1, lap2, drv1, drv2):
-    # Get sector times
-    sectors1 = lap1['Sector1Time'], lap1['Sector2Time'], lap1['Sector3Time']
-    sectors2 = lap2['Sector1Time'], lap2['Sector2Time'], lap2['Sector3Time']
+    sectors1 = [lap1.Sector1Time.total_seconds(), lap1.Sector2Time.total_seconds(), lap1.Sector3Time.total_seconds()]
+    sectors2 = [lap2.Sector1Time.total_seconds(), lap2.Sector2Time.total_seconds(), lap2.Sector3Time.total_seconds()]
 
-    # Check if any sectors are None
-    if None in sectors1 or None in sectors2:
-        st.warning("Sector times are not available for one of the drivers.")
-        return
-
-    # Plot sector times
     fig, ax = plt.subplots(figsize=(6,4))
     ax.bar([f"Sector {i}" for i in range(1,4)], sectors1, alpha=0.5, label=drv1)
     ax.bar([f"Sector {i}" for i in range(1,4)], sectors2, alpha=0.5, label=drv2)
@@ -121,19 +105,18 @@ def sector_analysis(lap1, lap2, drv1, drv2):
     st.pyplot(fig)
     plt.clf()
 
-def kpi_table(lap, driver):
+def kpi_table(telemetry, driver):
     st.subheader(f"{driver} KPIs")
     kpis = {
-        "Fastest Lap Time": lap['Time'].iloc[-1],
-        "Max Speed [km/h]": lap['Speed'].max(),
-        "Average Speed [km/h]": lap['Speed'].mean(),
-        "Average Throttle [%]": lap['Throttle'].mean(),
-        "Average Brake [%]": lap['Brake'].mean()
+        "Max Speed [km/h]": telemetry['Speed'].max(),
+        "Average Speed [km/h]": telemetry['Speed'].mean(),
+        "Average Throttle [%]": telemetry['Throttle'].mean(),
+        "Average Brake [%]": telemetry['Brake'].mean()
     }
     st.table(pd.DataFrame.from_dict(kpis, orient='index', columns=[driver]))
 
-def lap_delta_heatmap(lap1, lap2, drv1, drv2):
-    merged = pd.merge_asof(lap1, lap2, on='Distance', suffixes=(f'_{drv1}', f'_{drv2}'))
+def lap_delta_heatmap(tel1, tel2, drv1, drv2):
+    merged = pd.merge_asof(tel1, tel2, on='Distance', suffixes=(f'_{drv1}', f'_{drv2}'))
     merged['Delta'] = merged[f'Time_{drv1}'] - merged[f'Time_{drv2}']
     plt.figure(figsize=(10,3))
     plt.scatter(merged['Distance'], np.zeros_like(merged['Distance']), c=merged['Delta'], cmap='bwr', s=15)
@@ -171,10 +154,10 @@ if st.button("Compare Laps"):
         st.subheader("Sector Analysis")
         sector_analysis(lap1, lap2, driver1, driver2)
 
-        kpi_table(lap1, driver1)
-        kpi_table(lap2, driver2)
+        kpi_table(tel1, driver1)
+        kpi_table(tel2, driver2)
 
         st.subheader("Lap Delta Heatmap")
-        lap_delta_heatmap(lap1, lap2, driver1, driver2)
+        lap_delta_heatmap(tel1, tel2, driver1, driver2)
 
         session_summary(session)
