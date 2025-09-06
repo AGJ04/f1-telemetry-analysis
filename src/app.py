@@ -82,14 +82,16 @@ def plot_throttle_brake(tel1, tel2, drv1, drv2):
     st.pyplot(plt.gcf())
     plt.clf()
 
+
 def plot_track_speed_map(lap, driver):
-    # Create a colored track by speed
+    if 'X' not in lap.columns or 'Y' not in lap.columns:
+        st.warning(f"No X/Y coordinates available for {driver}'s lap.")
+        return
     plt.figure(figsize=(6,6))
-    track_map = plotting.track(lap)
     plt.scatter(lap['X'], lap['Y'], c=lap['Speed'], cmap='viridis', s=5)
-    plt.title(f"{driver} Track Speed Map")
     plt.axis('equal')
     plt.colorbar(label='Speed [km/h]')
+    plt.title(f"{driver} Track Speed Map")
     st.pyplot(plt.gcf())
     plt.clf()
 
