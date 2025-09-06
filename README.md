@@ -1,5 +1,3 @@
-# f1-telemetry-analysis
-
 # 🏎️ F1 Telemetry Analysis with FastF1
 
 This project uses the [FastF1](https://github.com/theOehrly/Fast-F1) API to analyze and visualize real Formula 1 telemetry data.  
