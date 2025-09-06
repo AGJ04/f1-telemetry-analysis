@@ -83,12 +83,16 @@ def plot_throttle_brake(tel1, tel2, drv1, drv2):
     plt.clf()
 
 
-def plot_track_speed_map(lap, driver):
-    if 'X' not in lap.columns or 'Y' not in lap.columns:
+def plot_track_speed_map(lap_obj, driver):
+    # Extract telemetry from Lap object
+    telemetry = lap_obj.get_telemetry()
+    
+    if 'X' not in telemetry.columns or 'Y' not in telemetry.columns:
         st.warning(f"No X/Y coordinates available for {driver}'s lap.")
         return
+    
     plt.figure(figsize=(6,6))
-    plt.scatter(lap['X'], lap['Y'], c=lap['Speed'], cmap='viridis', s=5)
+    plt.scatter(telemetry['X'], telemetry['Y'], c=telemetry['Speed'], cmap='viridis', s=5)
     plt.axis('equal')
     plt.colorbar(label='Speed [km/h]')
     plt.title(f"{driver} Track Speed Map")
