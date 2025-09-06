@@ -1,0 +1,9 @@
+/* static/style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f2f2f2;
+    color: #333;
+}
+h1 { text-align: center; }
+canvas { display: block; margin: auto; }
