@@ -45,6 +45,12 @@ drivers = sorted(session.laps['Driver'].unique())
 driver1 = st.sidebar.selectbox("Driver 1", drivers, index=0)
 driver2 = st.sidebar.selectbox("Driver 2", [d for d in drivers if d != driver1], index=0)
 
+# Lap selection for each driver
+laps1 = session.laps.pick_driver(driver1)
+laps2 = session.laps.pick_driver(driver2)
+lap_num1 = st.sidebar.select_slider(f"{driver1} Lap", options=list(range(len(laps1))))
+lap_num2 = st.sidebar.select_slider(f"{driver2} Lap", options=list(range(len(laps2))))
+
 # -------------------------
 # Driver images mapping
 # -------------------------
@@ -63,13 +69,9 @@ def get_driver_image(driver):
 # -------------------------
 # Functions
 # -------------------------
-def get_fastest_lap_telemetry(session, driver):
+def get_lap_telemetry(session, driver, lap_index):
     laps = session.laps.pick_driver(driver)
-    if laps.empty:
-        return None, None
-    lap = laps.pick_fastest()
-    if lap is None:
-        return None, None
+    lap = laps.iloc[lap_index]
     return lap.get_telemetry(), lap
 
 def plot_speed_comparison(tel1, tel2, drv1, drv2):
@@ -78,7 +80,7 @@ def plot_speed_comparison(tel1, tel2, drv1, drv2):
     plt.plot(tel2['Distance'], tel2['Speed'], label=drv2)
     plt.xlabel("Distance [m]")
     plt.ylabel("Speed [km/h]")
-    plt.title("Fastest Lap Speed Comparison")
+    plt.title("Lap Speed Comparison")
     plt.legend()
     st.pyplot(plt.gcf())
     plt.clf()
@@ -109,51 +111,48 @@ def plot_track_speed_map(lap_obj, driver):
     st.pyplot(plt.gcf())
     plt.clf()
 
-def sector_analysis(lap1, lap2, drv1, drv2):
+def sector_delta(lap1, lap2, drv1, drv2):
     sectors1 = [lap1.Sector1Time.total_seconds(), lap1.Sector2Time.total_seconds(), lap1.Sector3Time.total_seconds()]
     sectors2 = [lap2.Sector1Time.total_seconds(), lap2.Sector2Time.total_seconds(), lap2.Sector3Time.total_seconds()]
+    delta = [s1 - s2 for s1,s2 in zip(sectors1, sectors2)]
     fig, ax = plt.subplots(figsize=(6,4))
-    ax.bar([f"Sector {i}" for i in range(1,4)], sectors1, alpha=0.5, label=drv1)
-    ax.bar([f"Sector {i}" for i in range(1,4)], sectors2, alpha=0.5, label=drv2)
-    ax.set_ylabel("Sector Time [s]")
-    ax.set_title("Sector Comparison")
-    ax.legend()
+    ax.bar([f"Sector {i}" for i in range(1,4)], delta, color=['green' if d<0 else 'red' for d in delta])
+    ax.set_ylabel(f"Delta Time ({drv1}-{drv2}) [s]")
+    ax.set_title("Sector Delta Analysis")
     st.pyplot(fig)
     plt.clf()
 
-def kpi_table(telemetry, driver):
-    st.metric("Max Speed", f"{telemetry['Speed'].max():.1f} km/h", delta=None)
-    st.metric("Average Speed", f"{telemetry['Speed'].mean():.1f} km/h", delta=None)
-    st.metric("Average Throttle", f"{telemetry['Throttle'].mean():.1f} %", delta=None)
-    st.metric("Average Brake", f"{telemetry['Brake'].mean():.1f} %", delta=None)
-
-def lap_delta_heatmap(tel1, tel2, drv1, drv2):
-    merged = pd.merge_asof(tel1, tel2, on='Distance', suffixes=(f'_{drv1}', f'_{drv2}'))
-    merged['Delta'] = merged[f'Time_{drv1}'] - merged[f'Time_{drv2}']
-    plt.figure(figsize=(10,3))
-    plt.scatter(merged['Distance'], np.zeros_like(merged['Distance']), c=merged['Delta'], cmap='bwr', s=15)
-    plt.colorbar(label=f"Delta Time ({drv1}-{drv2}) [s]")
-    plt.title("Lap Delta Heatmap")
+def gforce_plot(tel1, tel2, drv1, drv2):
+    # Longitudinal acceleration (approx)
+    tel1['ax'] = tel1['Speed'].diff() / tel1['Time'].diff().dt.total_seconds()
+    tel2['ax'] = tel2['Speed'].diff() / tel2['Time'].diff().dt.total_seconds()
+    plt.figure(figsize=(10,4))
+    plt.plot(tel1['Distance'], tel1['ax'], label=f"{drv1} Longitudinal G", color='blue')
+    plt.plot(tel2['Distance'], tel2['ax'], label=f"{drv2} Longitudinal G", color='orange')
     plt.xlabel("Distance [m]")
+    plt.ylabel("Acceleration [m/s²]")
+    plt.title("Longitudinal Acceleration")
+    plt.legend()
     st.pyplot(plt.gcf())
     plt.clf()
 
-def session_summary(session):
-    st.subheader("Session Summary")
-    fastest_laps = session.laps.groupby('Driver')['LapTime'].min().sort_values()
-    st.table(fastest_laps)
+def kpi_table(telemetry, driver):
+    st.metric("Max Speed", f"{telemetry['Speed'].max():.1f} km/h")
+    st.metric("Average Speed", f"{telemetry['Speed'].mean():.1f} km/h")
+    st.metric("Average Throttle", f"{telemetry['Throttle'].mean():.1f} %")
+    st.metric("Average Brake", f"{telemetry['Brake'].mean():.1f} %")
 
 # -------------------------
 # Run Analysis
 # -------------------------
 if st.button("Compare Laps"):
-    tel1, lap1 = get_fastest_lap_telemetry(session, driver1)
-    tel2, lap2 = get_fastest_lap_telemetry(session, driver2)
+    tel1, lap1 = get_lap_telemetry(session, driver1, lap_num1)
+    tel2, lap2 = get_lap_telemetry(session, driver2, lap_num2)
 
     if tel1 is None or tel2 is None:
         st.error("One of the drivers has no laps in this session.")
     else:
-        # Show driver images side by side
+        # Show driver images
         col1, col2 = st.columns(2)
         with col1:
             img1 = get_driver_image(driver1)
@@ -172,17 +171,16 @@ if st.button("Compare Laps"):
             plot_track_speed_map(lap1, driver1)
             plot_track_speed_map(lap2, driver2)
 
-        st.subheader("Sector Analysis")
-        sector_analysis(lap1, lap2, driver1, driver2)
+        # Sector delta
+        st.subheader("Sector Delta Analysis")
+        sector_delta(lap1, lap2, driver1, driver2)
 
+        # KPIs
         st.subheader("Driver KPIs")
         col1, col2 = st.columns(2)
-        with col1:
-            kpi_table(tel1, driver1)
-        with col2:
-            kpi_table(tel2, driver2)
+        with col1: kpi_table(tel1, driver1)
+        with col2: kpi_table(tel2, driver2)
 
-        st.subheader("Lap Delta Heatmap")
-        lap_delta_heatmap(tel1, tel2, driver1, driver2)
-
-        session_summary(session)
+        # G-force
+        st.subheader("G-Force Analysis")
+        gforce_plot(tel1, tel2, driver1, driver2)
