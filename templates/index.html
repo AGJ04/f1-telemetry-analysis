@@ -1,58 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Telemetry Dashboard</title>
-
-    <!-- Link to CSS with cache-busting -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏎️ F1 Telemetry Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
-    <header>
-        <h1>🏎️ F1 Telemetry Dashboard</h1>
-    </header>
+  <header>
+    <h1>🏎️ F1 Telemetry Dashboard</h1>
+  </header>
 
-    <main>
-        <!-- Controls Section -->
-        <section class="controls">
-            <label>Year:
-                <input type="number" id="year" value="2023" min="2000" max="2025">
-            </label>
+  <main>
+    <section class="controls">
+      <label>Year:
+        <select id="year"></select>
+      </label>
 
-            <label>Grand Prix:
-                <input type="text" id="gp" value="Monaco Grand Prix">
-            </label>
+      <label>Grand Prix:
+        <select id="gp" disabled></select>
+      </label>
 
-            <label>Session:
-                <select id="session">
-                    <option>FP1</option>
-                    <option>FP2</option>
-                    <option>FP3</option>
-                    <option selected>Q</option>
-                    <option>R</option>
-                </select>
-            </label>
+      <label>Session:
+        <select id="session" disabled></select>
+      </label>
 
-            <label>Driver:
-                <select id="driver"></select>
-            </label>
+      <label>Driver:
+        <select id="driver" disabled></select>
+        <span id="driver-loading" class="loading-text" style="display:none;">Loading...</span>
+      </label>
 
-            <label>Lap:
-                <select id="lap"></select>
-            </label>
+      <label>Lap:
+        <select id="lap" disabled></select>
+      </label>
 
-            <button id="load">Load Telemetry</button>
-        </section>
+      <button id="load">Load Telemetry</button>
 
-        <!-- Output Section -->
-        <section id="output">
-            <h2>Telemetry Data</h2>
-            <pre id="telemetry-data">Select options and click "Load Telemetry"</pre>
-        </section>
-    </main>
+      <!-- Loading indicator -->
+      <div id="loading" style="display:none;">Loading...</div>
 
-    <!-- Load JS at the bottom -->
-    <script src="{{ url_for('static', filename='script.js') }}?v=2"></script>
+      <!-- Error message -->
+      <div id="error" class="error-message"></div>
+    </section>
+
+    <section id="output">
+      <div id="speed-plot"></div>
+      <div id="throttle-brake-plot"></div>
+      <div id="track-map-plot"></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
